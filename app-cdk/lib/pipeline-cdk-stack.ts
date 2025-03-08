@@ -43,7 +43,7 @@ export class PipelineCdkStack extends Stack {
         new codepipeline_actions.CodeStarConnectionsSourceAction({
           actionName: "GitHub",
           owner: "hikariri-hikariri",
-          repo: "CICD_Workshop",
+          repo: "cicd_workshop",
           output: sourceOutput,
           branch: "main",
           connectionArn: "arn:aws:codeconnections:us-east-1:038462781423:connection/348146d1-a6e3-4437-9434-71db54c1fa2e",
