@@ -47,18 +47,10 @@ phases:
       - aws ssm get-parameter --name signer-profile-arn --query "Parameter.Value" --output text || echo "Failed to get SSM parameter"
       
       # 署名プロファイルARNの検証
-      - |
-        if [ -z "$SIGNER_PROFILE_ARN" ]; then
-          echo "Error: SIGNER_PROFILE_ARN is empty or not set"
-          exit 1
-        fi
+      - if [ -z "$SIGNER_PROFILE_ARN" ]; then echo "Error: SIGNER_PROFILE_ARN is empty or not set"; exit 1; fi
       
       # ARN形式の確認（基本的な検証）
-      - |
-        if [[ ! "$SIGNER_PROFILE_ARN" == arn:aws:signer:* && ! "$SIGNER_PROFILE_ARN" == arn:${AWS::Partition}:signer:* ]]; then
-          echo "Warning: SIGNER_PROFILE_ARN may not be in the correct format: $SIGNER_PROFILE_ARN"
-          echo "Expected format: arn:aws:signer:region:account-id:/signing-profiles/profile-name"
-        fi
+      - if [[ ! "$SIGNER_PROFILE_ARN" == arn:aws:signer:* && ! "$SIGNER_PROFILE_ARN" == arn:aws-cn:signer:* ]]; then echo "Warning: SIGNER_PROFILE_ARN may not be in the correct format: $SIGNER_PROFILE_ARN"; echo "Expected format: arn:aws:signer:region:account-id:/signing-profiles/profile-name"; fi
       
       # 署名コマンドの実行
       - echo "Executing notation sign command..."
