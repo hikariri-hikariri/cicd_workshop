@@ -50,7 +50,8 @@ phases:
       - if [ -z "$SIGNER_PROFILE_ARN" ]; then echo "Error: SIGNER_PROFILE_ARN is empty or not set"; exit 1; fi
       
       # ARN形式の確認（基本的な検証）
-      - "if [[ ! \"$SIGNER_PROFILE_ARN\" == arn:aws:signer:* && ! \"$SIGNER_PROFILE_ARN\" == arn:aws-cn:signer:* ]]; then echo \"Warning: SIGNER_PROFILE_ARN may not be in the correct format: $SIGNER_PROFILE_ARN\"; fi"         
+      - if [[ ! "$SIGNER_PROFILE_ARN" == arn:aws:signer:* && ! "$SIGNER_PROFILE_ARN" == arn:aws-cn:signer:* ]]; then echo "Warning: SIGNER_PROFILE_ARN may not be in the correct format: $SIGNER_PROFILE_ARN"; echo "Expected format: arn:aws:signer:region:account-id:/signing-profiles/profile-name"; fi
+      
       # 署名コマンドの実行
       - echo "Executing notation sign command..."
       - notation sign $IMAGE_SHA_ARN --plugin com.amazonaws.signer.notation.plugin --id $SIGNER_PROFILE_ARN
