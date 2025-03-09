@@ -13,3 +13,4 @@ const ecrCdkStack = new EcrCdkStack(app, 'ecr-stack', {});
 const pipelineCdkStack = new PipelineCdkStack(app, 'pipeline-stack', {
   ecrRepository: ecrCdkStack.repository,
 });
+// no mean comment
