@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
-    
+    "test": "vitest",
+    "test:junit": "vitest --reporter=junit --outputFile=./junit.xml"
   },
   "dependencies": {
     "react": "^19.0.0",
