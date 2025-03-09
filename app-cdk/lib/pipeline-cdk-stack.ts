@@ -6,6 +6,7 @@ import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as ecr from "aws-cdk-lib/aws-ecr";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
 interface ConsumerProps extends StackProps {
   ecrRepository: ecr.Repository;
@@ -23,6 +24,14 @@ export class PipelineCdkStack extends Stack {
         providerType: "GitHub",
       }
     );
+
+    new CfnOutput(this, "SourceConnectionArn", {
+      value: SourceConnection.attrConnectionArn,
+    });
+
+    new CfnOutput(this, "SourceConnectionStatus", {
+      value: SourceConnection.attrConnectionStatus,
+    });
 
     const pipeline = new codepipeline.Pipeline(this, "Pipeline", {
       pipelineName: "CICD_Pipeline",
@@ -42,34 +51,7 @@ export class PipelineCdkStack extends Stack {
 
     const sourceOutput = new codepipeline.Artifact();
     const unitTestOutput = new codepipeline.Artifact();
-
-    pipeline.addStage({
-      stageName: "Source",
-      actions: [
-        new codepipeline_actions.CodeStarConnectionsSourceAction({
-          actionName: "GitHub",
-          owner: "hikariri-hikariri",
-          repo: "cicd_workshop",
-          output: sourceOutput,
-          branch: "main",
-          connectionArn:
-            "arn:aws:codeconnections:us-east-1:038462781423:connection/348146d1-a6e3-4437-9434-71db54c1fa2e",
-        }),
-      ],
-    });
-
-    pipeline.addStage({
-      stageName: "Code-Quality-Testing",
-      actions: [
-        new codepipeline_actions.CodeBuildAction({
-          actionName: "Unit-Test",
-          project: codeBuild,
-          input: sourceOutput,
-          outputs: [unitTestOutput],
-        }),
-      ],
-    });
-
+    
     const dockerBuild = new codebuild.PipelineProject(this, "DockerBuild", {
       environmentVariables: {
         IMAGE_TAG: { value: "latest" },
@@ -104,6 +86,54 @@ export class PipelineCdkStack extends Stack {
     });
 
     const dockerBuildOutput = new codepipeline.Artifact();
+    const signerARNParameter = new ssm.StringParameter(this, "SignerARNParam", {
+      parameterName: "signer-profile-arn",
+      stringValue:
+        "arn:aws:signer:us-east-1:038462781423:/signing-profiles/ecr_signing_profile/kx1kZQddnJ",
+    });
+
+    const signerParameterPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: [signerARNParameter.parameterArn],
+      actions: ["ssm:GetParametersByPath", "ssm:GetParameters"],
+    });
+
+    const signerPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: ["*"],
+      actions: [
+        "signer:PutSigningProfile",
+        "signer:SignPayload",
+        "signer:GetRevocationStatus",
+      ],
+    });
+
+    pipeline.addStage({
+      stageName: "Source",
+      actions: [
+        new codepipeline_actions.CodeStarConnectionsSourceAction({
+          actionName: "GitHub",
+          owner: "hikariri-hikariri",
+          repo: "cicd_workshop",
+          output: sourceOutput,
+          branch: "main",
+          connectionArn:
+            "arn:aws:codeconnections:us-east-1:038462781423:connection/348146d1-a6e3-4437-9434-71db54c1fa2e",
+        }),
+      ],
+    });
+
+    pipeline.addStage({
+      stageName: "Code-Quality-Testing",
+      actions: [
+        new codepipeline_actions.CodeBuildAction({
+          actionName: "Unit-Test",
+          project: codeBuild,
+          input: sourceOutput,
+          outputs: [unitTestOutput],
+        }),
+      ],
+    });
 
     pipeline.addStage({
       stageName: "Docker-Push-ECR",
@@ -118,14 +148,7 @@ export class PipelineCdkStack extends Stack {
     });
 
     dockerBuild.addToRolePolicy(dockerBuildRolePolicy);
-
-    new CfnOutput(this, "SourceConnectionArn", {
-      value: SourceConnection.attrConnectionArn,
-    });
-
-    new CfnOutput(this, "SourceConnectionStatus", {
-      value: SourceConnection.attrConnectionStatus,
-    });
+    dockerBuild.addToRolePolicy(signerParameterPolicy);
+    dockerBuild.addToRolePolicy(signerPolicy);
   }
 }
-// no mean comment
