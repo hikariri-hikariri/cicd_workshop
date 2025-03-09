@@ -78,7 +78,8 @@ export class PipelineCdkStack extends Stack {
 
     const signerARNParameter = new ssm.StringParameter(this, "SignerARNParam", {
       parameterName: "signer-profile-arn",
-      stringValue: "arn:aws:signer:us-east-1:038462781423:/signing-profiles/ecr_signing_profile/kx1kZQddnJ",
+      stringValue:
+        "arn:aws:signer:us-east-1:038462781423:/signing-profiles/ecr_signing_profile/kx1kZQddnJ",
     });
 
     const signerParameterPolicy = new iam.PolicyStatement({
@@ -98,11 +99,12 @@ export class PipelineCdkStack extends Stack {
       actions: [
         new codepipeline_actions.CodeStarConnectionsSourceAction({
           actionName: "GitHub",
-          owner: "{{organizationName}}",
-          repo: "CICD_Workshop",
+          owner: "hikariri-hikariri",
+          repo: "cicd_workshop",
           output: sourceOutput,
           branch: "main",
-          connectionArn: "{{connectionARN}}",
+          connectionArn:
+            "arn:aws:codeconnections:us-east-1:038462781423:connection/348146d1-a6e3-4437-9434-71db54c1fa2e",
         }),
       ],
     });
