@@ -1,12 +1,18 @@
 import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { aws_codeconnections as codeconnections } from "aws-cdk-lib";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as codepipeline_actions from "aws-cdk-lib/aws-codepipeline-actions";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
+import * as ecr from "aws-cdk-lib/aws-ecr";
+
+interface ConsumerProps extends StackProps {
+  ecrRepository: ecr.Repository;
+}
 
 export class PipelineCdkStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps) {
+  constructor(scope: Construct, id: string, props: ConsumerProps) {
     super(scope, id, props);
 
     const SourceConnection = new codeconnections.CfnConnection(
@@ -46,7 +52,8 @@ export class PipelineCdkStack extends Stack {
           repo: "cicd_workshop",
           output: sourceOutput,
           branch: "main",
-          connectionArn: "arn:aws:codeconnections:us-east-1:038462781423:connection/348146d1-a6e3-4437-9434-71db54c1fa2e",
+          connectionArn:
+            "arn:aws:codeconnections:us-east-1:038462781423:connection/348146d1-a6e3-4437-9434-71db54c1fa2e",
         }),
       ],
     });
@@ -62,6 +69,55 @@ export class PipelineCdkStack extends Stack {
         }),
       ],
     });
+
+    const dockerBuild = new codebuild.PipelineProject(this, "DockerBuild", {
+      environmentVariables: {
+        IMAGE_TAG: { value: "latest" },
+        IMAGE_REPO_URI: { value: props.ecrRepository.repositoryUri },
+        AWS_DEFAULT_REGION: { value: process.env.CDK_DEFAULT_REGION },
+      },
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+        privileged: true,
+        computeType: codebuild.ComputeType.LARGE,
+      },
+      buildSpec: codebuild.BuildSpec.fromSourceFilename("buildspec_docker.yml"),
+    });
+
+    const dockerBuildRolePolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: ["*"],
+      actions: [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:GetRepositoryPolicy",
+        "ecr:DescribeRepositories",
+        "ecr:ListImages",
+        "ecr:DescribeImages",
+        "ecr:BatchGetImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+      ],
+    });
+
+    const dockerBuildOutput = new codepipeline.Artifact();
+
+    pipeline.addStage({
+      stageName: "Docker-Push-ECR",
+      actions: [
+        new codepipeline_actions.CodeBuildAction({
+          actionName: "Docker-Build",
+          project: dockerBuild,
+          input: sourceOutput,
+          outputs: [dockerBuildOutput],
+        }),
+      ],
+    });
+
+    dockerBuild.addToRolePolicy(dockerBuildRolePolicy);
 
     new CfnOutput(this, "SourceConnectionArn", {
       value: SourceConnection.attrConnectionArn,
